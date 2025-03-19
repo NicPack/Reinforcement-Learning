@@ -40,7 +40,7 @@ bandit_configurations = [
         {"strategy": "Optimistic-Greedy", "Q": 1},
     ),
     ("Optimistic-Greedy", GreedyLearner, {"strategy": "Optimistic-Greedy", "Q": 2}),
-    ("Optimistic-Greedy", GreedyLearner, {"strategy": "Optimistic-Greedy", "Q": 5}),
+    ("Optimistic-Greedy", GreedyLearner, {"strategy": "Optimistic-Greedy", "Q": 4}),
     # Upper Confidence Bound (UCB)
     ("UCB", UpperConfidenceBoundLearner, {"c": 0.05}),
     ("UCB", UpperConfidenceBoundLearner, {"c": 0.1}),
@@ -78,7 +78,7 @@ def store_results(request):
 def test_bandit_learner(learner_name, learner_class, param_dict, store_results):
     """Test and store results for final plotting"""
     time_steps = 1000
-    num_runs = 50
+    num_runs = 200
 
     average_reward = 0
 
@@ -103,14 +103,24 @@ def generate_final_plot():
     """Generate and save the final comparison plot"""
     plt.figure(figsize=(12, 6))
 
-    print("\n=== Plot Data Verification ===")
+    param_to_x = {}
+
+    all_params = set()
+    for learner in results_storage.keys():
+        params = results_storage[learner]["param"]
+        all_params.update(params)
+
+    sorted_params = sorted(all_params)
+    param_to_x = {param: i for i, param in enumerate(sorted_params)}
+
     for learner in results_storage.keys():
         params = results_storage[learner]["param"]
         avg_rewards = results_storage[learner]["avg_reward"]
 
-        x_indices = range(len(params))
+        x_positions = [param_to_x[param] for param in params]
+
         plt.plot(
-            x_indices,
+            x_positions,
             avg_rewards,
             label=learner,
             linewidth=2,
@@ -118,10 +128,15 @@ def generate_final_plot():
             marker="o",
         )
 
-        plt.xticks(x_indices, params, rotation=45, ha="right")
+    plt.xticks(
+        range(len(sorted_params)),
+        sorted_params,
+        rotation=45,
+        ha="right",
+    )
 
     plt.xlabel("ε, α, C, Q", fontsize=12)
-    plt.ylabel("Average Reward over first 1000 steps", fontsize=12)
+    plt.ylabel("Average Reward", fontsize=12)
     plt.title("Bandit Algorithm Performance Comparison", fontsize=14)
 
     plt.grid(True, alpha=0.3)
@@ -129,13 +144,7 @@ def generate_final_plot():
 
     # Force legend even if empty
     handles, labels = plt.gca().get_legend_handles_labels()
-    if not handles:
-        plt.text(0.5, 0.5, "No data to display", ha="center", va="center", fontsize=16)
-    else:
-        plt.legend(
-            handles, labels, bbox_to_anchor=(1.05, 1), loc="upper left", fontsize=10
-        )
+    plt.legend(handles, labels, bbox_to_anchor=(1.05, 1), loc="upper left", fontsize=10)
 
-    # Save the plot
     plt.savefig("lab1/bandit_performance.png", bbox_inches="tight")
     print("\n--- Saved plots to bandit_performance.png ---")
