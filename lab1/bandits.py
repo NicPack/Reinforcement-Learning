@@ -45,21 +45,12 @@ class BanditProblem:
 
     def run(self) -> list[float]:
         rewards = []
-        actions = []
-
-        for t in range(self.time_steps):
-            action = self.learner.pick_arm()
-            reward = self.bandit.reward(action)
-
-            if action is None or reward is None:
-                print(f"⚠️ Error at t={t}: action={action}, reward={reward}")
-                continue
-
+        for _ in range(self.time_steps):
+            arm = self.learner.pick_arm()
+            reward = self.bandit.reward(arm)
+            self.learner.acknowledge_reward(arm, reward)
             rewards.append(reward)
-            actions.append(action)
-
-        print(f"✅ Run completed: {len(rewards)} rewards, {len(actions)} actions")
-        return rewards, actions
+        return rewards
 
 
 POTENTIAL_HITS = {
@@ -100,7 +91,7 @@ class RandomLearner(BanditLearner):
 
 
 class ExploreThenCommitLearner(BanditLearner):
-    def __init__(self, m: int = 5):
+    def __init__(self, m: int = 10):
         self.name = "ETC"
         self.color = "blue"
         self.arms: list[str] = []
@@ -149,9 +140,9 @@ class UpperConfidenceBoundLearner(BanditLearner):
         self.time_step = 0
 
     def pick_arm(self) -> str:
-        if self.time_step < self.k_arms:
-            self.time_step += 1
-            return self.arms[self.time_step % self.k_arms]
+        self.time_step += 1
+        if self.time_step <= self.k_arms:
+            return self.arms[self.time_step - 1]
         else:
             self.calculate_ubc()
             return max(self.arms_ubc, key=self.arms_ubc.get)
@@ -163,9 +154,12 @@ class UpperConfidenceBoundLearner(BanditLearner):
 
     def calculate_ubc(self):
         for arm in self.arms:
-            self.arms_ubc[arm] = self.arms_means[arm] + (
-                self.c * np.sqrt(np.log(self.time_step) / self.arms_pulls[arm])
-            )
+            if self.arms_pulls[arm] == 0:
+                self.arms_ubc[arm] = float("inf")
+            else:
+                self.arms_ubc[arm] = self.arms_means[arm] + (
+                    self.c * np.sqrt(np.log(self.time_step) / self.arms_pulls[arm])
+                )
 
 
 class GreedyLearner(BanditLearner):
@@ -257,14 +251,21 @@ class GradientLearner(BanditLearner):
         self.reward_baseline = 0.0
 
     def pick_arm(self) -> str:
-        probabilities = softmax(list(self.preferences.values()))
+        probabilities = softmax(
+            list(self.preferences.values())
+        )  # Compute action probabilities
         return np.random.choice(self.arms, p=probabilities)
 
     def acknowledge_reward(self, arm: str, reward: float) -> None:
+        """Update preferences based on the received reward"""
         self.time_step += 1
-        self.reward_baseline += (1 / self.time_step) * (reward - self.reward_baseline)
+        self.reward_baseline += (1 / self.time_step) * (
+            reward - self.reward_baseline
+        )  # Update baseline
 
-        probabilities = softmax(list(self.preferences.values()))
+        probabilities = softmax(
+            list(self.preferences.values())
+        )  # Compute probabilities before updating
 
         for i, a in enumerate(self.arms):
             if a == arm:
@@ -284,6 +285,7 @@ class ThompsonLearner(BanditLearner):
         self.name = "Thompson"
         self.color = "olive"
         self.arms: list[str] = []
+        self.time_step = 0
         self.k_arms: int = None
         self.arms_stats: dict[str] = {}
 
@@ -305,8 +307,8 @@ class ThompsonLearner(BanditLearner):
         self.arms_stats[arm]["b"] += 1 - reward
 
 
-TIME_STEPS = 1000
-TRIALS_PER_LEARNER = 50
+TIME_STEPS = 5000
+TRIALS_PER_LEARNER = 200
 
 
 def evaluate_learner(learner: BanditLearner) -> None:
@@ -314,7 +316,7 @@ def evaluate_learner(learner: BanditLearner) -> None:
     for _ in range(TRIALS_PER_LEARNER):
         bandit = TopHitBandit(POTENTIAL_HITS)
         problem = BanditProblem(time_steps=TIME_STEPS, bandit=bandit, learner=learner)
-        rewards, _ = problem.run()
+        rewards = problem.run()
         accumulated_rewards = list(accumulate(rewards))
         runs_results.append(accumulated_rewards)
 
@@ -335,8 +337,8 @@ def main():
     learners = [
         RandomLearner(),
         ExploreThenCommitLearner(),
-        UpperConfidenceBoundLearner(),
         GreedyLearner(),
+        UpperConfidenceBoundLearner(),
         GradientLearner(),
         ThompsonLearner(),
     ]
