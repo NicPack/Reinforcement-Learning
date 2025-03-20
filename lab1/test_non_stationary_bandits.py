@@ -1,7 +1,7 @@
 import matplotlib.pyplot as plt
 import numpy as np
 import pytest
-from bandits import (
+from non_stationary_bandits import (
     BanditProblem,
     GradientLearner,
     GreedyLearner,
@@ -164,6 +164,6 @@ def generate_final_plot(measure: str = None):
     plt.legend(handles, labels, bbox_to_anchor=(1.05, 1), loc="upper left", fontsize=10)
 
     if measure[4:] == "regret":
-        plt.savefig("lab1/regret_performance.png", bbox_inches="tight")
+        plt.savefig("lab1/non_stationary_regret_performance.png", bbox_inches="tight")
     else:
-        plt.savefig("lab1/reward_performance.png", bbox_inches="tight")
+        plt.savefig("lab1/non_stationary_reward_performance.png", bbox_inches="tight")
