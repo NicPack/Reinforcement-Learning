@@ -89,14 +89,14 @@ def test_bandit_learner(learner_name, learner_class, param_dict, store_results):
     for n in range(num_runs):
         potential_hits = generate_potential_hits()
         bandit = TopHitBandit(potential_hits)
-        optimal_prob = max(potential_hits.values())
 
         learner = learner_class(**param_dict)
         problem = BanditProblem(time_steps, bandit, learner)
-        rewards = problem.run()
+        rewards, best_pick_rewards = problem.run()
 
         rewards = np.array(rewards)
-        regret = (optimal_prob * time_steps) - np.sum(rewards)
+        best_pick_rewards = np.array(best_pick_rewards)
+        regret = (np.sum(best_pick_rewards) - np.sum(rewards)) / time_steps
 
         average_reward += (1 / (n + 1)) * (np.mean(rewards) - average_reward)
         average_regret += (1 / (n + 1)) * (np.mean(regret) - average_regret)

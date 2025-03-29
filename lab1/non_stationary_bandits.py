@@ -18,6 +18,10 @@ class KArmedBandit(Protocol):
     def reward(self, arm: str) -> float:
         raise NotImplementedError
 
+    @abstractmethod
+    def best_pick_reward(self):
+        pass
+
 
 class BanditLearner(Protocol):
     name: str
@@ -45,12 +49,14 @@ class BanditProblem:
 
     def run(self) -> list[float]:
         rewards = []
+        best_pick_rewards = []
         for _ in range(self.time_steps):
             arm = self.learner.pick_arm()
             reward = self.bandit.reward(arm)
             self.learner.acknowledge_reward(arm, reward)
             rewards.append(reward)
-        return rewards
+            best_pick_rewards.append(self.bandit.best_pick_reward())
+        return rewards, best_pick_rewards
 
 
 POTENTIAL_HITS = {
@@ -71,7 +77,16 @@ class TopHitBandit(KArmedBandit):
 
     def reward(self, arm: str) -> float:
         thumb_up_probability = self.potential_hits[arm]
+
+        # each time we draw a reward, change the likelyhood of a thumb up
+        # to make the problem non-stationary
+        for hit in self.potential_hits:
+            self.potential_hits[hit] += np.random.normal(0, 0.1, 1)
+
         return 1.0 if random.random() <= thumb_up_probability else 0.0
+
+    def best_pick_reward(self):
+        return 1.0 if random.random() <= max(self.potential_hits.values()) else 0.0
 
 
 class RandomLearner(BanditLearner):
@@ -115,10 +130,6 @@ class ExploreThenCommitLearner(BanditLearner):
 
     def acknowledge_reward(self, arm: str, reward: float) -> None:
         self.arms_stats[arm] += reward
-
-        # modify probability each time to make the problem nonstationary
-        for arm in self.arms_stats:
-            self.arms_stats[arm] += np.random.normal(0, 1, 1)
 
 
 class UpperConfidenceBoundLearner(BanditLearner):
@@ -165,27 +176,14 @@ class UpperConfidenceBoundLearner(BanditLearner):
                     self.c * np.sqrt(np.log(self.time_step) / self.arms_pulls[arm])
                 )
 
-        # modify probability each time to make the problem nonstationary
-        for arm in self.arms_ubc:
-            self.arms_ubc[arm] += np.random.normal(0, 1, 1)
-
 
 class GreedyLearner(BanditLearner):
-    """This time greedy will utilise exponenstial recency-weighted average with learning rate"""
-
-    def __init__(
-        self,
-        strategy=None,
-        learning_rate: float = 0.1,
-        Q: float = None,
-        epsilon: float = None,
-    ):
+    def __init__(self, strategy=None, Q=None, epsilon=None):
         self.color = "purple"
         self.arms: list[str] = []
         self.time_step = 0
         self.k_arms: int = None
         self.arms_stats: dict[dict[int, int]] = {}
-        self.learning_rate = learning_rate
 
         if not strategy:
             self.strategy = random.choice(["Greedy", "ε-Greedy", "Optimistic-Greedy"])
@@ -245,14 +243,10 @@ class GreedyLearner(BanditLearner):
                 )
 
     def acknowledge_reward(self, arm: str, reward: float) -> None:
-        """exponential recency-weighted average"""
-        self.arms_stats[arm]["mean"] += self.learning_rate * (
+        self.arms_stats[arm]["n_pulls"] += 1
+        self.arms_stats[arm]["mean"] += (1 / self.arms_stats[arm]["n_pulls"]) * (
             reward - self.arms_stats[arm]["mean"]
         )
-
-        # modify probability each time to make the problem nonstationary
-        for arm in self.arms_stats:
-            self.arms_stats[arm]["mean"] += np.random.normal(0, 1, 1)
 
 
 class GradientLearner(BanditLearner):
@@ -300,10 +294,6 @@ class GradientLearner(BanditLearner):
                     self.alpha * (reward - self.reward_baseline) * probabilities[i]
                 )
 
-        # modify probability each time to make the problem nonstationary
-        for arm in self.preferences:
-            self.preferences[arm] += np.random.normal(0, 1)
-
 
 class ThompsonLearner(BanditLearner):
     def __init__(self):
@@ -331,19 +321,6 @@ class ThompsonLearner(BanditLearner):
         self.arms_stats[arm]["a"] += reward
         self.arms_stats[arm]["b"] += 1 - reward
 
-        # modify probability each time to make the problem nonstationary
-        # ensure a and b are >= 1
-
-        for arm in self.arms_stats:
-            self.arms_stats[arm]["a"] = max(
-                self.arms_stats[arm]["a"],
-                self.arms_stats[arm]["a"] + np.random.normal(0, 1, 1),
-            )
-            self.arms_stats[arm]["b"] = max(
-                self.arms_stats[arm]["b"],
-                self.arms_stats[arm]["b"] + np.random.normal(0, 1, 1),
-            )
-
 
 TIME_STEPS = 5000
 TRIALS_PER_LEARNER = 200
@@ -354,7 +331,7 @@ def evaluate_learner(learner: BanditLearner) -> None:
     for _ in range(TRIALS_PER_LEARNER):
         bandit = TopHitBandit(POTENTIAL_HITS)
         problem = BanditProblem(time_steps=TIME_STEPS, bandit=bandit, learner=learner)
-        rewards = problem.run()
+        rewards, best_pick_rewards = problem.run()
         accumulated_rewards = list(accumulate(rewards))
         runs_results.append(accumulated_rewards)
 
