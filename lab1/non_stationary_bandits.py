@@ -82,6 +82,9 @@ class TopHitBandit(KArmedBandit):
         # to make the problem non-stationary
         for hit in self.potential_hits:
             self.potential_hits[hit] += np.random.normal(0, 0.1, 1)
+            self.potential_hits[hit] = np.clip(
+                self.potential_hits[hit], a_min=0, a_max=1
+            )
 
         return 1.0 if random.random() <= thumb_up_probability else 0.0
 

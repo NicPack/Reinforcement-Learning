@@ -62,6 +62,13 @@ parameters = set(
     list(configuration[-1].values())[-1] for configuration in bandit_configurations
 )
 
+bandit_to_color = {
+    "UCB": "blue",
+    "Gradient": "orange",
+    "ε-Greedy": "green",
+    "Optimistic-Greedy": "red",
+}
+
 results_storage = {
     bandit: {"avg_reward": [], "avg_regret": [], "param": []} for bandit in bandits
 }
@@ -130,7 +137,7 @@ def generate_final_plot(measure: str = None):
     sorted_params = sorted(all_params)
     param_to_x = {param: i for i, param in enumerate(sorted_params)}
 
-    for learner in results_storage.keys():
+    for learner in sorted(results_storage.keys()):
         params = results_storage[learner]["param"]
         avg_rewards = results_storage[learner][measure]
 
@@ -143,6 +150,7 @@ def generate_final_plot(measure: str = None):
             linewidth=2,
             alpha=0.7,
             marker="o",
+            color=bandit_to_color[learner],
         )
 
     plt.xticks(
