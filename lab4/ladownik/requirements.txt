@@ -1,0 +1,5 @@
+gymnasium==0.29.1
+matplotlib==3.8.2
+tqdm==4.66.1
+tensorflow==2.15.0
+tensorflow-probability==0.23.0

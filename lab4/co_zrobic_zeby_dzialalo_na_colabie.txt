@@ -1,0 +1,8 @@
+!apt install swig cmake libopenmpi-dev zlib1g-dev
+!pip install stable-baselines[mpi] box2d box2d-kengz
+!pip install Box2D
+!pip install box2d-py
+!pip install gymnasium
+!pip install gymnasium[box2d]
+!pip install gymnasium[classic-control]
+!pip install tqdm
