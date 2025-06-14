@@ -3,10 +3,11 @@ name = "reinforce"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.7"
 dependencies = [
     "box2d>=2.3.10",
     "cycler>=0.12.1",
+    "datasets>=2.19.2",
     "gymnasium==0.29.1",
     "joblib>=1.4.2",
     "matplotlib==3.8.2",
@@ -23,6 +24,7 @@ dependencies = [
     "threadpoolctl>=3.6.0",
     "torch>=2.7.0",
     "tqdm==4.66.1",
+    "transformers>=4.52.3",
 ]
 
 [dependency-groups]
